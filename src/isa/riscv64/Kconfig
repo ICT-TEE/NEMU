@@ -41,6 +41,13 @@ config RV_PMP_CHECK
   bool "Enable PMP Check"
   default n
 
+config PMPTABLE_EXTENSION
+  depends on !PERF_OPT
+  depends on !RV_PMP_CHECK
+  depends on RV_PMP_CSR
+  bool "Enable PMP table extension"
+  default n
+
 config RV_SPMP_CSR
   bool "Enable sPMP CSR Read & Write"
   default y

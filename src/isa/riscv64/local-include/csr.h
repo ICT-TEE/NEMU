@@ -208,6 +208,12 @@ CSR_STRUCT_END(mip)
 #define PMP_W     0x02
 #define PMP_X     0x04
 #define PMP_A     0x18
+
+#ifdef CONFIG_PMPTABLE_EXTENSION
+#define PMP_T     0x20
+#define PMP_C     0x40
+#endif
+
 #define PMP_L     0x80
 #define PMP_SHIFT 2
 #define PMP_PLATFORMGARIN 12 // log2(4KB)

@@ -122,7 +122,7 @@ word_t paddr_read(paddr_t addr, int len, int type, int mode, vaddr_t vaddr) {
   }
 #endif
   if (!isa_pmp_check_permission(addr, len, type, mode)) {
-    Log("isa pmp check failed");
+    Log("isa pmp check failed: addr:%#lx, len:%d, type;%d, mode:%d", addr, len, type, mode);
     raise_read_access_fault(type, vaddr);
     return 0;
   }
