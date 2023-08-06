@@ -327,6 +327,7 @@ int force_raise_pf(vaddr_t vaddr, int type){
   return MEM_RET_OK;
 }
 
+#ifdef CONFIG_PMPTABLE_EXTENSION
 static bool napot_decode(paddr_t addr, word_t spmp_addr) {
   word_t spmp_addr_start, spmp_addr_end;
   spmp_addr_start = (spmp_addr & (spmp_addr + 1)) << SPMP_SHIFT;
@@ -358,7 +359,6 @@ static uint8_t address_matching(paddr_t base, paddr_t addr, int len, word_t spmp
   return s_flag + e_flag;
 }
 
-#ifdef CONFIG_PMPTABLE_EXTENSION
 bool pmpcfg_check_permission(uint8_t pmpcfg,int type,int out_mode) {
   if (out_mode == MODE_M) {
     return true;
