@@ -748,6 +748,8 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
       return false;
     }
 
+    perm = (perm & 0b11) == 0b10 ? perm & 0b1100 : perm;  /* W=1 and R=0 is not allow */
+
 #define R_BIT 0x1
 #define W_BIT 0x2
 #define X_BIT 0x4
