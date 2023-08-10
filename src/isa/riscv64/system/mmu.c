@@ -716,6 +716,10 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
      */
     uint64_t root_pte = host_read(guest_to_host(root_pte_addr), 8);
 
+    if (root_pte_addr == 0x91010038) {
+      Log("[DEBUG] check root_pte_addr %#lx, real data from root_pte: %#lx.", root_pte_addr, root_pte);
+    }
+
     /* 
      * root_pte case(last 4 bits are 0001): 
      * valid(last bit is 1) but no permission bit is set(other bit are all 0),
@@ -724,12 +728,18 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
     if ((root_pte & 0x0f) == 1) {
       bool at_high = page_index % 2;
       int idx = page_index / 2;
+      uint64_t leaf_pte_addr = ((root_pte >> 5) << 12) + (off0 << 3) + idx;
       uint8_t leaf_pte = host_read(guest_to_host(((root_pte >> 5) << 12) + (off0 << 3)) + idx, 1);
       if (at_high) {
         perm = leaf_pte >> 4;
       } 
       else {
         perm = leaf_pte & 0xf;
+      }
+      if (root_pte_addr == 0x91010038) {
+        Log("[DEBUG] check root_pte_addr %#lx, enter branch 1, perm is %#x.", root_pte_addr, perm);
+        Log("[DEBUG] hit leaf_pte_addr %#lx, leaf_pte %#x.", leaf_pte_addr, leaf_pte);
+        Log("[DEBUG] type is %#x.", type);
       }
     }
     /* 
@@ -738,6 +748,9 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
      * directly use the root pte to get permission.       
      */
     else if ((root_pte & 0x1) == 1) {
+      if (root_pte_addr == 0x91010038) {
+        Log("[DEBUG] check root_pte_addr %#lx, enter root_pte check, perm is %#x.", root_pte_addr, perm);
+      }
       perm = (root_pte >> 1) & 0xf;
     }
     /* 
@@ -745,6 +758,9 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
      * invaild(last bit is 0), directly return false.
      */
     else {
+      if (root_pte_addr == 0x91010038) {
+        Log("[DEBUG] check root_pte_addr %#lx, enter branch 3, perm is %#x.", root_pte_addr, perm);
+      }
       return false;
     }
 
@@ -756,12 +772,21 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
     /* Check permission */
     if (type == MEM_TYPE_READ || type == MEM_TYPE_IFETCH_READ
         || type == MEM_TYPE_WRITE_READ) {
+      if (root_pte_addr == 0x91010038) {
+        Log("[DEBUG] check root_pte_addr %#lx, read return is %#x.", root_pte_addr, perm & R_BIT);
+      }
       return perm & R_BIT;
     }
     else if (type == MEM_TYPE_WRITE) {
+      if (root_pte_addr == 0x91010038) {
+        Log("[DEBUG] check root_pte_addr %#lx, write return is %#x.", root_pte_addr, perm & W_BIT);
+      }
       return perm & W_BIT;
     }
     else if (type == MEM_TYPE_IFETCH) {
+      if (root_pte_addr == 0x91010038) {
+        Log("[DEBUG] check root_pte_addr %#lx, execute return is %#x.", root_pte_addr, perm & X_BIT);
+      }
       return perm & X_BIT;
     }
     else {
@@ -903,8 +928,14 @@ bool isa_pmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
       }
       /* Matched */
       else {
+        if (addr == 0xafa13000) {
+          Log("[DEBUG] check %#lx, before check T-bit.", addr);
+        }
         /* Table-bit is enabled, get permission from pmptable */
         if (pmpcfg & PMP_T) {
+          if (addr == 0xafa13000) {
+            Log("[DEBUG] check %#lx, enter pmptable with pmpcfg: %#x.", addr, pmpcfg);
+          }
           word_t offset = 0;
           if (addr_mode == PMP_TOR){
             offset = addr - base;

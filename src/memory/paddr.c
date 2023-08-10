@@ -205,7 +205,11 @@ void pmem_record_reset() {
 #endif // CONFIG_LIGHTQS
 
 void paddr_write(paddr_t addr, int len, word_t data, int mode, vaddr_t vaddr) {
+  if (addr == 0xafa13000) {
+    Log("[DEBUG] check %#lx, Enter paddr_write.", addr);
+  }
   if (!isa_pmp_check_permission(addr, len, MEM_TYPE_WRITE, mode)) {
+    Log("isa pmp check failed");
     raise_access_fault(EX_SAF, vaddr);
     return ;
   }
