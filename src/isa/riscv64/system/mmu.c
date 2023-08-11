@@ -414,6 +414,9 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
     else if ((root_pte & 0x1) == 1) {
       perm = (root_pte >> 1) & 0xf;
     }
+
+    perm = ((perm & 0x3) == 0x2) ? (perm & 0x4) : perm;
+
 #define R_BIT 0x1
 #define W_BIT 0x2
 #define X_BIT 0x4
@@ -700,8 +703,8 @@ bool isa_spmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
   }
   // no matching --> true or false??
   if (out_mode == MODE_U) {
-    printf("spmp Mode U refuse!");
-    return false;
+    // printf("spmp Mode U refuse!\n");
+    return true;
   }
   else {
     return true;

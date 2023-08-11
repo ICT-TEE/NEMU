@@ -42,7 +42,6 @@ config RV_PMP_CHECK
   default n
 
 config PMPTABLE_EXTENSION
-  depends on !PERF_OPT
   depends on !RV_PMP_CHECK
   depends on RV_PMP_CSR
   bool "Enable PMP table extension"
@@ -60,7 +59,6 @@ config RV_SPMP_NUM
 
 config RV_SPMP_CHECK
   # todo: spmp check still not work when enable PERF_OPT
-  depends on !PERF_OPT
   depends on RV_SPMP_CSR
   bool "Enable sPMP Check"
   default n
