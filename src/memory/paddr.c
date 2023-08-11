@@ -117,7 +117,7 @@ word_t paddr_read(paddr_t addr, int len, int type, int mode, vaddr_t vaddr) {
 #ifdef CONFIG_RV_SPMP_CHECK
   if (!isa_spmp_check_permission(addr, len, type, mode)) {
     Log("isa spmp check failed");
-    raise_read_spmp_fault(type, vaddr);
+    raise_read_access_fault(type, vaddr);
     return 0;
   }
 #endif
