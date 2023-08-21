@@ -116,7 +116,7 @@ word_t paddr_read(paddr_t addr, int len, int type, int mode, vaddr_t vaddr) {
   assert(type == MEM_TYPE_READ || type == MEM_TYPE_IFETCH_READ || type == MEM_TYPE_IFETCH || type == MEM_TYPE_WRITE_READ);
 #ifdef CONFIG_RV_SPMP_CHECK
   if (!isa_spmp_check_permission(addr, len, type, mode)) {
-    Log("isa spmp check failed");
+    Log("isa spmp check failed, addr: %#lx, type: %d, mode: %d", addr, type, mode);
     raise_read_access_fault(type, vaddr);
     return 0;
   }
@@ -159,7 +159,7 @@ void paddr_write(paddr_t addr, int len, word_t data, int mode, vaddr_t vaddr) {
 #ifdef CONFIG_RV_SPMP_CHECK
   if (!isa_spmp_check_permission(addr, len, MEM_TYPE_WRITE , mode)) {
     Log("isa spmp check failed");
-    raise_access_fault(EX_SSF, vaddr);
+    raise_access_fault(EX_SAF, vaddr);
     return ;
   }
 #endif

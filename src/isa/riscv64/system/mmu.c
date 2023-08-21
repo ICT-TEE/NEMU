@@ -614,6 +614,7 @@ static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_m
         case 0b0011: permission_ret = 0b110; break;
         case 0b1001: 
         case 0b1010: permission_ret = 0b001; break;
+        case 0b1000: permission_ret = 0b111; break;
         case 0b1011: permission_ret = 0b101; break;
         case 0b1100: permission_ret = 0b100; break;
         case 0b1101: permission_ret = 0b101; break;
@@ -633,6 +634,7 @@ static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_m
         case 0b1001: 
         case 0b1010: permission_ret = 0b001; break;
         case 0b1011: permission_ret = 0b101; break;
+        case 0b1000: permission_ret = 0b111; break;
         case 0b1100: permission_ret = 0b100; break;
         case 0b1101: permission_ret = 0b101; break;
         case 0b1110: permission_ret = 0b110; break;
@@ -663,13 +665,11 @@ static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_m
     case MEM_TYPE_IFETCH: 
       return ((permission_ret | 0b001) == permission_ret);
     case MEM_TYPE_READ:
+    case MEM_TYPE_IFETCH_READ:
+    case MEM_TYPE_WRITE_READ:
       return ((permission_ret | 0b100) == permission_ret);
     case MEM_TYPE_WRITE:
       return ((permission_ret | 0b010) == permission_ret);
-    case MEM_TYPE_IFETCH_READ:
-      return ((permission_ret | 0b101) == permission_ret);
-    case MEM_TYPE_WRITE_READ:
-      return ((permission_ret | 0b110) == permission_ret);
     default:
       return false;
   }
