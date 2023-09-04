@@ -59,10 +59,10 @@ void hosttlb_init() {
 
 static paddr_t va2pa(struct Decode *s, vaddr_t vaddr, int len, int type) {
   if (type != MEM_TYPE_IFETCH) save_globals(s);
-  int ret = isa_mmu_check(vaddr, len, type);
-  if (ret == MMU_DIRECT) return vaddr;
+  // int ret = isa_mmu_check(vaddr, len, type);
+  // if (ret == MMU_DIRECT) return vaddr;
   paddr_t pg_base = isa_mmu_translate(vaddr, len, type);
-  ret = pg_base & PAGE_MASK;
+  int ret = pg_base & PAGE_MASK;
   assert(ret == MEM_RET_OK);
   return pg_base | (vaddr & PAGE_MASK);
 }
