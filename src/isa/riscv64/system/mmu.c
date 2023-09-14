@@ -652,6 +652,7 @@ static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_m
     case 0b0101: permission_ret = 0b101; break;
     case 0b0110: permission_ret = 0b110; break;
     case 0b0111: permission_ret = 0b111; break;
+    case 0b1000: permission_ret = 0b111; break;
     case 0b1010:
     case 0b1011: permission_ret = 0b001; break;
     case 0b1111: permission_ret = 0b100; break;
@@ -702,9 +703,9 @@ bool isa_spmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
     base = spmp_addr << SPMP_SHIFT;
   }
   // no matching --> true or false??
-  if (out_mode == MODE_U) {
+  if (out_mode == MODE_U || out_mode == MODE_S) {
     // printf("spmp Mode U refuse!\n");
-    return true;
+    return false;
   }
   else {
     return true;
