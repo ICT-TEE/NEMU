@@ -327,7 +327,13 @@ int force_raise_pf(vaddr_t vaddr, int type){
   return MEM_RET_OK;
 }
 
-#ifdef CONFIG_PMPTABLE_EXTENSION
+#ifndef CONFIG_RV_SPMP_CHECK
+#ifndef CONFIG_PMPTABLE_EXTENSION
+#define DISABLE_ADDR_MATCHING_FOR_SPMP_AND_PMPTABLE
+#endif
+#endif
+
+#ifndef DISABLE_ADDR_MATCHING_FOR_SPMP_AND_PMPTABLE
 static bool napot_decode(paddr_t addr, word_t spmp_addr) {
   word_t spmp_addr_start, spmp_addr_end;
   spmp_addr_start = (spmp_addr & (spmp_addr + 1)) << SPMP_SHIFT;
@@ -358,7 +364,9 @@ static uint8_t address_matching(paddr_t base, paddr_t addr, int len, word_t spmp
   }
   return s_flag + e_flag;
 }
+#endif
 
+#ifdef CONFIG_PMPTABLE_EXTENSION
 bool pmpcfg_check_permission(uint8_t pmpcfg,int type,int out_mode) {
   if (out_mode == MODE_M) {
     return true;
@@ -651,6 +659,7 @@ static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_m
     case 0b0100: permission_ret = 0b100; break;
     case 0b0101: permission_ret = 0b101; break;
     case 0b0110: permission_ret = 0b110; break;
+    case 0b1000:
     case 0b0111: permission_ret = 0b111; break;
     case 0b1010:
     case 0b1011: permission_ret = 0b001; break;
