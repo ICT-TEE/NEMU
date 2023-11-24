@@ -260,6 +260,7 @@ end_of_bb:
     // Because every instruction executed goes here, don't put Log here to improve performance
     def_finish();
     Logti("prev pc = 0x%lx, pc = 0x%lx", prev_s->pc, s->pc);
+    prev_s = s;
     debug_difftest(this_s, s);
   }
 

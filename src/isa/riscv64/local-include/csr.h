@@ -73,6 +73,7 @@
   f(mscratch   , 0x340) f(mepc       , 0x341) f(mcause     , 0x342) \
   f(mtval      , 0x343) f(mip        , 0x344) \
   CSRS_PMP(f) \
+  CSRS_SPMP(f) \
   f(mhartid    , 0xf14) \
   f(sstatus    , 0x100) \
   f(sie        , 0x104) f(stvec      , 0x105) f(scounteren , 0x106) \
