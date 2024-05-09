@@ -309,10 +309,12 @@ static inline def_DHelper(C_JALR) {
   decode_op_r(s, id_dest, 1, false);
 }
 
+#ifdef CONFIG_SHARE
 static inline def_DHelper(C_EBREAK) {
   decode_op_r(s, id_src1, BITS(s->isa.instr.val, 6, 2), true);
   decode_op_r(s, id_dest, BITS(s->isa.instr.val, 11, 7), false);
 }
+#endif
 
 def_THelper(c_addi_dispatch) {
   if (id_src2->imm == 1) return table_p_inc(s);
@@ -411,7 +413,11 @@ def_THelper(rvc_Q2_jr_mov) {
 }
 
 def_THelper(rvc_Q2_jalr_add) {
+#ifdef CONFIG_SHARE
   def_INSTR_IDTAB("??? ? 00000 00000 ??", C_EBREAK , c_ebreak);  // ebreak
+#else
+  def_INSTR_TAB ("??? ? 00000 00000 ??", inv); // ebreak
+#endif
   def_INSTR_IDTAB("??? ? 00001 00000 ??", C_JALR , jalr); // c_jalr can not handle correctly when rs1 == ra
   def_INSTR_IDTAB("??? ? ????? 00000 ??", C_JALR , c_jalr);
   def_INSTR_IDTAB("??? ? ????? ????? ??", C_ADD  , c_add);
