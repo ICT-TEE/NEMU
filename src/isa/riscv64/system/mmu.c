@@ -331,7 +331,7 @@ int force_raise_pf(vaddr_t vaddr, int type){
 static bool napot_decode(paddr_t addr, word_t spmp_addr) {
   word_t spmp_addr_start, spmp_addr_end;
   spmp_addr_start = (spmp_addr & (spmp_addr + 1)) << SPMP_SHIFT;
-  spmp_addr_end = ((spmp_addr | (spmp_addr + 1))) << SPMP_SHIFT + 0b11;
+  spmp_addr_end = ((spmp_addr | (spmp_addr + 1)) << SPMP_SHIFT) + 0b11;
   return ((spmp_addr_start <= addr && addr <= spmp_addr_end) ? true : false);
 }
 
