@@ -45,6 +45,11 @@ enum {
   EX_DULAF,     // DASICS user load access fault
   EX_DUSAF,     // DASICS user store access fault
 #endif  // CONFIG_RV_DASICS
+#ifdef CONFIG_RV_SPMP_CHECK
+  EX_ISF, // instr spmp fault
+  EX_LSF, // load spmp fault
+  EX_SSF  // store spmp fault
+#endif
 };
 
 // now NEMU does not support EX_IAM,

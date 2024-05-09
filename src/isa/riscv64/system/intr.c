@@ -44,7 +44,7 @@ bool intr_deleg_VS(word_t exceptionNO){
 #else
 bool intr_deleg_S(word_t exceptionNO) {
   word_t deleg = (exceptionNO & INTR_BIT ? mideleg->val : medeleg->val);
-#ifdef CONFIG_RV_DASICS
+#if defined(CONFIG_RV_DASICS) || defined(RV_SPMP_CHECK)
   word_t mask = 0x1f;  // exception number ranges from [0,31]
 #else
   word_t mask = 0xf;  // exception number ranges from [0,15]
@@ -186,9 +186,13 @@ word_t raise_intr(word_t NO, vaddr_t epc) {
       case EX_IPF: case EX_LPF: case EX_SPF:
       case EX_LAM: case EX_SAM:
       case EX_IAF: case EX_LAF: case EX_SAF:
+
 #ifdef CONFIG_RV_DASICS
       case EX_DUIAF: case EX_DULAF: case EX_DUSAF:
 #endif  // CONFIG_RV_DASICS
+#ifdef CONFIG_RV_SPMP_CHECK
+      case EX_ISF: case EX_LSF: case EX_SSF:
+#endif
 #ifdef CONFIG_RVH
         mtval2->val = 0;
         break;

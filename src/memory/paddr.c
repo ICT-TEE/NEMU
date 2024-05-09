@@ -124,6 +124,15 @@ static inline void raise_read_access_fault(int type, vaddr_t vaddr) {
   raise_access_fault(cause, vaddr);
 }
 
+#ifdef CONFIG_RV_SPMP_CHECK
+static inline void raise_read_spmp_fault(int type, vaddr_t vaddr) {
+  int cause = EX_LSF;
+  if (type == MEM_TYPE_IFETCH || type == MEM_TYPE_IFETCH_READ) { cause = EX_ISF; }
+  else if (cpu.amo || type == MEM_TYPE_WRITE_READ)             { cause = EX_SSF; }
+  raise_access_fault(cause, vaddr);
+}
+#endif
+
 void init_mem() {
 #ifdef CONFIG_USE_MMAP
   #ifdef CONFIG_MULTICORE_DIFF
@@ -167,8 +176,15 @@ word_t paddr_read(paddr_t addr, int len, int type, int mode, vaddr_t vaddr) {
 
 
   assert(type == MEM_TYPE_READ || type == MEM_TYPE_IFETCH_READ || type == MEM_TYPE_IFETCH || type == MEM_TYPE_WRITE_READ);
+#ifdef CONFIG_RV_SPMP_CHECK
+  if (!isa_spmp_check_permission(addr, len, type, mode)) {
+    Log("isa spmp check failed, addr: %#lx, type: %d, mode: %d", addr, type, mode);
+    raise_read_access_fault(type, vaddr);
+    return 0;
+  }
+#endif
   if (!isa_pmp_check_permission(addr, len, type, mode)) {
-    Log("isa pmp check failed");
+    Log("isa pmp check failed: addr:%#lx, len:%d, type;%d, mode:%d", addr, len, type, mode);
     raise_read_access_fault(type, vaddr);
     return 0;
   }
@@ -268,7 +284,15 @@ void pmem_record_reset() {
 #endif // CONFIG_STORE_LOG
 
 void paddr_write(paddr_t addr, int len, word_t data, int mode, vaddr_t vaddr) {
+#ifdef CONFIG_RV_SPMP_CHECK
+  if (!isa_spmp_check_permission(addr, len, MEM_TYPE_WRITE , mode)) {
+    Log("isa spmp check failed");
+    raise_access_fault(EX_SAF, vaddr);
+    return ;
+  }
+#endif
   if (!isa_pmp_check_permission(addr, len, MEM_TYPE_WRITE, mode)) {
+    Log("isa pmp check failed");
     raise_access_fault(EX_SAF, vaddr);
     return ;
   }

@@ -665,39 +665,38 @@ int force_raise_pf(vaddr_t vaddr, int type){
 }
 
 #ifdef CONFIG_PMPTABLE_EXTENSION
-static bool napot_decode(paddr_t addr, word_t pmpaddr) {
-  word_t pmpaddr_start, pmpaddr_end;
+static bool napot_decode(paddr_t addr, word_t spmp_addr) {
+  word_t spmp_addr_start, spmp_addr_end;
   /* NAPOT decode method, learn form qemu */
-  pmpaddr_start = (pmpaddr & (pmpaddr + 1)) << PMP_SHIFT;
-  pmpaddr_end = (pmpaddr | (pmpaddr + 1)) << PMP_SHIFT;
-  return ((pmpaddr_start <= addr && addr < pmpaddr_end) ? true : false);
+  spmp_addr_start = (spmp_addr & (spmp_addr + 1)) << SPMP_SHIFT;
+  spmp_addr_end = ((spmp_addr | (spmp_addr + 1))) << SPMP_SHIFT + 0b11;
+  return ((spmp_addr_start <= addr && addr <= spmp_addr_end) ? true : false);
 }
 
-static uint8_t pmp_address_match(paddr_t base, paddr_t addr, int len, word_t pmpaddr, uint8_t addr_mode) {
+static uint8_t address_matching(paddr_t base, paddr_t addr, int len, word_t spmp_addr, uint8_t addr_mode) {
   /* start address and end address */
   paddr_t addr_s, addr_e;
   addr_s = addr;
-  addr_e = addr + len;
+  addr_e = addr + len - 1;
   /* matched flag of start address and end address */
   uint8_t s_flag = 0;
   uint8_t e_flag = 0;
-
   /* TOR: use last pmpaddr(base) as floor, and current pmpaddr as roof*/
-  if (addr_mode == PMP_TOR) {
-    pmpaddr = pmpaddr << PMP_SHIFT;
-    s_flag = (base <= addr_s && addr_s < pmpaddr ) ? 1 : 0;
-    e_flag = (base <= addr_e && addr_e < pmpaddr) ? 1 : 0;
+  if (addr_mode == SPMP_TOR) {
+    spmp_addr = spmp_addr << SPMP_SHIFT;
+    s_flag = (base <= addr_s && addr_s < spmp_addr ) ? 1 : 0;
+    e_flag = (base <= addr_e && addr_e < spmp_addr) ? 1 : 0;
   }
   /* NA4: pmpaddr ~ (pmpaddr + 4) */
-  else if (addr_mode == PMP_NA4) {
-    pmpaddr = pmpaddr << PMP_SHIFT;
-    s_flag = (pmpaddr <= addr_s && addr_s < (pmpaddr + (1 << PMP_SHIFT))) ? 1 : 0;
-    e_flag = (pmpaddr <= addr_e && addr_e < (pmpaddr + (1 << PMP_SHIFT))) ? 1 : 0;
+  else if (addr_mode == SPMP_NA4) {
+    spmp_addr = spmp_addr << SPMP_SHIFT;
+    s_flag = (spmp_addr <= addr_s && addr_s < (spmp_addr + (1 << SPMP_SHIFT))) ? 1 : 0;
+    e_flag = (spmp_addr <= addr_e && addr_e < (spmp_addr + (1 << SPMP_SHIFT))) ? 1 : 0;
   }
   /* NAPOT: decode the NAPOT format pmpaddr */
-  else if (addr_mode == PMP_NAPOT) {
-    s_flag = napot_decode(addr_s, pmpaddr) ? 1 : 0;
-    e_flag = napot_decode(addr_e, pmpaddr) ? 1 : 0;
+  else if (addr_mode == SPMP_NAPOT) {
+    s_flag = napot_decode(addr_s, spmp_addr) ? 1 : 0;
+    e_flag = napot_decode(addr_e, spmp_addr) ? 1 : 0;
   }
   return s_flag + e_flag;
 }
@@ -731,13 +730,23 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
     uint8_t page_index = (offset >> 12) & 0xf;    /* page index */
     uint8_t perm = 0;                             /* permission, default no permission */
 
+    // Log("root_pte_base is: %#lx.", root_table_base);
     uint64_t root_pte_addr = root_table_base + (off1 << 3);
+    // Log("root_pte_addr is: %#lx.", root_pte_addr);
+
     /*
      * Get root pte:
      * Use host_read instead of paddr_read, avoid nested call of isa_pmp_check_permission
      */
-    uint64_t root_pte = host_read(guest_to_host(root_pte_addr), 8);
 
+    uint64_t root_pte = host_read(guest_to_host(root_pte_addr), 8);
+    // Log("root_pte is: %#lx.", root_pte);
+
+    // Log("root_pte_addr is: %#lx.", root_pte_addr);
+    // Log("root_pte is: %#lx.", root_pte);
+    // Log("flag is: %ld.", root_pte & 0x0f);
+    // Log("off1 is: %#lx.", off1);
+    
     /*
      * root_pte case(last 4 bits are 0001):
      * valid(last bit is 1) but no permission bit is set(other bit are all 0),
@@ -747,13 +756,15 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
       bool at_high = page_index % 2;
       int idx = page_index / 2;
       uint8_t leaf_pte = host_read(guest_to_host(((root_pte >> 5) << 12) + (off0 << 3)) + idx, 1);
+      Log("hit leaf pte: %#lx.", (uint64_t)leaf_pte);
       if (at_high) {
         perm = leaf_pte >> 4;
-      }
+      } 
       else {
         perm = leaf_pte & 0xf;
       }
     }
+
     /*
      * root_pte case(last 4 bits are xxx1):
      * valid(last bit is 1) and some permission bits are set(other bit are not all 0),
@@ -762,13 +773,15 @@ bool pmptable_check_permission(word_t offset, word_t root_table_base, int type, 
     else if ((root_pte & 0x1) == 1) {
       perm = (root_pte >> 1) & 0xf;
     }
-    /*
-     * root_pte case(last 4 bits are xxx0):
-     * invaild(last bit is 0), directly return false.
-     */
-    else {
-      return false;
-    }
+    // /*
+    //  * root_pte case(last 4 bits are xxx0):
+    //  * invaild(last bit is 0), directly return false.
+    //  */
+    // else {
+    //   return false;
+    // }
+    perm = ((perm & 0x3) == 0x2) ? (perm & 0x4) : perm;
+
 
 #define R_BIT 0x1
 #define W_BIT 0x2
@@ -908,13 +921,12 @@ bool isa_pmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
     uint8_t addr_mode = pmpcfg & PMP_A;
     if (addr_mode) {
       int match_ret = 0;
-      match_ret = pmp_address_match(base, addr, len, pmpaddr, addr_mode);
-      /*
-       * When match_ret == 1, means that only a part of addr is in a pmpaddr region
+      match_ret = address_matching(base, addr, len, pmpaddr, addr_mode);
+      /* when_ret == 1, means that addr is half in a pmpaddr region
        * and it is illegal.
        */
       if (match_ret == 1) {
-        Log("[ERROR] addr is illegal in pmpaddr match. pmpcfg[%d] = %#x", i, pmpcfg);
+        Log("[ERROR] addr is misaligned in pmp check. pmpcfg[%d] = %#x", i, pmpcfg);
         return false;
       }
       /* Not matched */
@@ -925,6 +937,7 @@ bool isa_pmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
       else {
         /* Table-bit is enabled, get permission from pmptable */
         if (pmpcfg & PMP_T) {
+          // Log("[INFO] pmpcfg[%d] is %#2x, pmptable used.", i, pmpcfg);
           word_t offset = 0;
           if (addr_mode == PMP_TOR){
             offset = addr - base;
@@ -933,10 +946,17 @@ bool isa_pmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
             offset = addr - (pmpaddr << PMP_SHIFT);
           }
           word_t root_table_base = pmpaddr_from_index(i + 1) << 12;
+          if (addr == 0xc0000000) {
+            Log("addr = %#lx, catch the bug.", addr);
+            Log("offset = %#lx, catch the bug.", offset);
+            Log("base = %#lx, important value.", base);
+            Log("root_table_base = %#lx, catch the bug.", root_table_base);
+          }
           return pmptable_check_permission(offset, root_table_base, type, out_mode);
         }
         /* Table-bit is disable, get permission directly form pmpcfg reg */
         else {
+          // Log("[INFO] pmpcfg[%d] is %#2x, pmptable not used.\n", i, pmpcfg);
           return pmpcfg_check_permission(pmpcfg, type, out_mode);
         }
       }
@@ -950,5 +970,120 @@ bool isa_pmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
 #ifndef CONFIG_PMPTABLE_EXTENSION
   return true;
 #endif
+#endif
+}
+
+#ifdef CONFIG_RV_SPMP_CHECK
+
+// 根据spmp_cfg的值、当前所在的特权级、以及sum位，查表得到当前应有的特权
+static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_mode) {
+  uint8_t spmp_permission, permission_ret;  // ret R/W/X
+  spmp_permission = ((spmp_cfg & SPMP_S) >> 4) | (spmp_cfg & SPMP_R) << 2 | (spmp_cfg & SPMP_W) | ((spmp_cfg & SPMP_X) >> 2); // input S/R/W/X
+  if (out_mode == MODE_S) {
+    if (!mstatus->sum) {
+      switch(spmp_permission) {
+        case 0b0010: 
+        case 0b0011: permission_ret = 0b110; break;
+        case 0b1001: 
+        case 0b1010: permission_ret = 0b001; break;
+        case 0b1000: permission_ret = 0b111; break;
+        case 0b1011: permission_ret = 0b101; break;
+        case 0b1100: permission_ret = 0b100; break;
+        case 0b1101: permission_ret = 0b101; break;
+        case 0b1110: permission_ret = 0b110; break;
+        case 0b1111: permission_ret = 0b100; break;
+        default: permission_ret = 0b000; break;
+      }
+    }
+    else {
+      switch(spmp_permission) {
+        case 0b0010: 
+        case 0b0011: permission_ret = 0b110; break;
+        case 0b0100: 
+        case 0b0101: permission_ret = 0b100; break;
+        case 0b0110:
+        case 0b0111: permission_ret = 0b110; break;
+        case 0b1001: 
+        case 0b1010: permission_ret = 0b001; break;
+        case 0b1011: permission_ret = 0b101; break;
+        case 0b1000: permission_ret = 0b111; break;
+        case 0b1100: permission_ret = 0b100; break;
+        case 0b1101: permission_ret = 0b101; break;
+        case 0b1110: permission_ret = 0b110; break;
+        case 0b1111: permission_ret = 0b100; break;
+        default: permission_ret = 0b000; break;
+      }
+    }
+  }
+  else if (out_mode == MODE_U) {
+   switch (spmp_permission) {
+    case 0b0001: permission_ret = 0b001; break;
+    case 0b0010: permission_ret = 0b100; break;
+    case 0b0011: permission_ret = 0b110; break;
+    case 0b0100: permission_ret = 0b100; break;
+    case 0b0101: permission_ret = 0b101; break;
+    case 0b0110: permission_ret = 0b110; break;
+    case 0b0111: permission_ret = 0b111; break;
+    case 0b1000: permission_ret = 0b111; break;
+    case 0b1010:
+    case 0b1011: permission_ret = 0b001; break;
+    case 0b1111: permission_ret = 0b100; break;
+    default: permission_ret = 0b000; break;
+   }
+  } 
+  else { // MODE_M
+    permission_ret = 0b111;
+  }
+  switch (type) {
+    case MEM_TYPE_IFETCH: 
+      return ((permission_ret | 0b001) == permission_ret);
+    case MEM_TYPE_READ:
+    case MEM_TYPE_IFETCH_READ:
+    case MEM_TYPE_WRITE_READ:
+      return ((permission_ret | 0b100) == permission_ret);
+    case MEM_TYPE_WRITE:
+      return ((permission_ret | 0b010) == permission_ret);
+    default:
+      return false;
+  }
+}
+#endif
+
+// 遍历（暗含优先级匹配）spmp寄存器组
+bool isa_spmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
+#ifdef CONFIG_RV_SPMP_CHECK
+  word_t base = 0;
+  for (int i = 0; i < CONFIG_RV_SPMP_NUM; i++) {
+    word_t spmp_addr = spmpaddr_from_index(i);
+    uint8_t spmp_cfg = spmpcfg_from_index(i);
+    uint8_t addr_mode = spmp_cfg & PMP_A;
+    if (addr_mode != 0) {
+      uint8_t matching_result = 0;
+      matching_result = address_matching(base, addr, len, spmp_addr, addr_mode); 
+      if (matching_result == 1)
+      {
+        printf("spmp addr misalianed!\n");
+        return false;
+      }
+      else if (matching_result == 0){  
+        continue;
+      }
+      else {
+        // 检查是否具备spmp权限
+        return spmp_internal_check_permission(spmp_cfg, type, out_mode);
+      }
+    }
+    base = spmp_addr << SPMP_SHIFT;
+  }
+  // no matching --> true or false??
+  if (out_mode == MODE_U || out_mode == MODE_S) {
+    // printf("spmp Mode U refuse!\n");
+    return false;
+  }
+  else {
+    return true;
+  }
+#else
+  return true;
 #endif
 }
