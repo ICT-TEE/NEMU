@@ -331,14 +331,14 @@ int force_raise_pf(vaddr_t vaddr, int type){
 static bool napot_decode(paddr_t addr, word_t spmp_addr) {
   word_t spmp_addr_start, spmp_addr_end;
   spmp_addr_start = (spmp_addr & (spmp_addr + 1)) << SPMP_SHIFT;
-  spmp_addr_end = (spmp_addr | (spmp_addr + 1)) << SPMP_SHIFT;
-  return ((spmp_addr_start <= addr && addr < spmp_addr_end) ? true : false);
+  spmp_addr_end = ((spmp_addr | (spmp_addr + 1))) << SPMP_SHIFT + 0b11;
+  return ((spmp_addr_start <= addr && addr <= spmp_addr_end) ? true : false);
 }
 
 static uint8_t address_matching(paddr_t base, paddr_t addr, int len, word_t spmp_addr, uint8_t addr_mode) {
   paddr_t addr_s, addr_e;
   addr_s = addr;
-  addr_e = addr + len;
+  addr_e = addr + len - 1;
   uint8_t s_flag = 0;
   uint8_t e_flag = 0;
 
@@ -604,6 +604,7 @@ bool isa_pmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
 
 #ifdef CONFIG_RV_SPMP_CHECK
 
+// 根据spmp_cfg的值、当前所在的特权级、以及sum位，查表得到当前应有的特权
 static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_mode) {
   uint8_t spmp_permission, permission_ret;  // ret R/W/X
   spmp_permission = ((spmp_cfg & SPMP_S) >> 4) | (spmp_cfg & SPMP_R) << 2 | (spmp_cfg & SPMP_W) | ((spmp_cfg & SPMP_X) >> 2); // input S/R/W/X
@@ -677,7 +678,7 @@ static bool spmp_internal_check_permission(uint8_t spmp_cfg, int type, int out_m
 }
 #endif
 
-
+// 遍历（暗含优先级匹配）spmp寄存器组
 bool isa_spmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
 #ifdef CONFIG_RV_SPMP_CHECK
   word_t base = 0;
@@ -693,10 +694,11 @@ bool isa_spmp_check_permission(paddr_t addr, int len, int type, int out_mode) {
         printf("spmp addr misalianed!\n");
         return false;
       }
-      else if (matching_result == 0){
+      else if (matching_result == 0){  
         continue;
       }
       else {
+        // 检查是否具备spmp权限
         return spmp_internal_check_permission(spmp_cfg, type, out_mode);
       }
     }
